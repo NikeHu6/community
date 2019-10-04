@@ -2,10 +2,15 @@ package com.nicode.community.community.service;
 
 import com.nicode.community.community.dto.PaginationDTO;
 import com.nicode.community.community.dto.QuestionDTO;
+import com.nicode.community.community.exception.CustomizeErrorCode;
+import com.nicode.community.community.exception.CustomizeException;
+import com.nicode.community.community.mapper.QuestionExtMapper;
 import com.nicode.community.community.mapper.QuestionMapper;
 import com.nicode.community.community.mapper.UserMapper;
 import com.nicode.community.community.model.Question;
+import com.nicode.community.community.model.QuestionExample;
 import com.nicode.community.community.model.User;
+import org.apache.ibatis.session.RowBounds;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -22,19 +27,32 @@ public class QuestionService {
     @Autowired
     private QuestionMapper questionMapper;
 
+    @Autowired
+    private QuestionExtMapper questionExtMapper;
+
     public void createOrUpdate(Question question) {
         if (question.getId() == null){
             question.setGmtCreate(System.currentTimeMillis());
             question.setGmtModified(question.getGmtCreate());
-            questionMapper.create(question);
+            questionMapper.insert(question);
         }else{
-            question.setGmtModified(question.getGmtCreate());
-            questionMapper.update(question);
+            QuestionExample questionExample = new QuestionExample();
+            questionExample.createCriteria().andIdEqualTo(question.getId());
+
+            Question record = new Question();
+            record.setTitle(question.getTitle());
+            record.setDescription(question.getDescription());
+            record.setGmtModified(System.currentTimeMillis());
+            record.setTag(question.getTag());
+            int update = questionMapper.updateByExampleSelective(record, questionExample);
+            if (update != 1){
+                throw new CustomizeException(CustomizeErrorCode.QUESTION_NOT_FOUND);
+            }
         }
     }
 
     public PaginationDTO list(Integer page, Integer size) {
-        Integer totalCount = questionMapper.count();
+        Integer totalCount = (int)questionMapper.countByExample(new QuestionExample());
         Integer totalPage = (totalCount+size-1) / size;
         if (page<1){
             page = 1;
@@ -46,7 +64,7 @@ public class QuestionService {
         Integer offset = size*(page-1);
         PaginationDTO paginationDTO = new PaginationDTO();
         List<QuestionDTO> questionDTOS = new ArrayList<>();
-        List<Question> questionList = questionMapper.list(offset,size);
+        List<Question> questionList = questionMapper.selectByExampleWithRowbounds(new QuestionExample(), new RowBounds(offset, size));
         for (Question question : questionList) {
             User user = userMapper.selectByPrimaryKey(question.getCreator());
             QuestionDTO questionDTO = new QuestionDTO();
@@ -62,7 +80,9 @@ public class QuestionService {
     }
 
     public PaginationDTO list(Integer userId, Integer page, Integer size) {
-        Integer totalCount = questionMapper.countByUserId(userId);
+        QuestionExample example = new QuestionExample();
+        example.createCriteria().andCreatorEqualTo(userId);
+        Integer totalCount = (int)questionMapper.countByExample(example);
         Integer totalPage = (totalCount+size-1) / size;
         if (page<1){
             page = 1;
@@ -74,7 +94,9 @@ public class QuestionService {
         Integer offset = size*(page-1);
         PaginationDTO paginationDTO = new PaginationDTO();
         List<QuestionDTO> questionDTOS = new ArrayList<>();
-        List<Question> questionList = questionMapper.listByUserId(userId,offset,size);
+        QuestionExample questionExample = new QuestionExample();
+        questionExample.createCriteria().andCreatorEqualTo(userId);
+        List<Question> questionList = questionMapper.selectByExampleWithRowbounds(questionExample,new RowBounds(offset,size));
         for (Question question : questionList) {
             User user = userMapper.selectByPrimaryKey(question.getCreator());
             QuestionDTO questionDTO = new QuestionDTO();
@@ -91,7 +113,10 @@ public class QuestionService {
 
     public QuestionDTO getByID(Integer id) {
 
-        Question question = questionMapper.findById(id);
+        Question question = questionMapper.selectByPrimaryKey(id);
+        if (question == null){
+            throw new CustomizeException(CustomizeErrorCode.QUESTION_NOT_FOUND);
+        }
         User user = userMapper.selectByPrimaryKey(question.getCreator());
         QuestionDTO questionDTO = new QuestionDTO();
         BeanUtils.copyProperties(question,questionDTO);
@@ -99,4 +124,11 @@ public class QuestionService {
         return questionDTO;
     }
 
+    public void incView(Integer id) {
+        //累加问题的浏览次数
+        Question question = new Question();
+        question.setId(id);
+        question.setViewCount(1);
+        questionExtMapper.incView(question);
+    }
 }
