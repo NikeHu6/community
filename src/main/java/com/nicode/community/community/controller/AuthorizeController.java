@@ -5,6 +5,7 @@ import com.nicode.community.community.dto.GithubUser;
 import com.nicode.community.community.mapper.UserMapper;
 import com.nicode.community.community.model.User;
 import com.nicode.community.community.provider.GithubProvider;
+import com.nicode.community.community.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
@@ -23,6 +24,8 @@ public class AuthorizeController {
     private GithubProvider githubProvider;
     @Autowired
     private UserMapper userMapper;
+    @Autowired
+    private UserService userService;
 
     @Value("${github.client_id}")
     private String client_id;
@@ -51,10 +54,8 @@ public class AuthorizeController {
             user.setToken(token);
             user.setName(githubUser.getName());
             user.setAccountId(String.valueOf(githubUser.getId()));
-            user.setGmtCreate(System.currentTimeMillis());
-            user.setGmtModified(user.getGmtCreate());
-            user.setAvatarUrl(githubUser.getAvatar_url());
-            userMapper.insert(user);
+            user.setAvatarUrl(githubUser.getAvatarUrl());
+            userService.createOrUpdate(user);
             response.addCookie(new Cookie("token",token));
             //登陆成功，写cookies和session
             //request.getSession().setAttribute("user",githubUser);
@@ -63,5 +64,14 @@ public class AuthorizeController {
             //登陆失败，重新登陆
             return "redirect:/";
         }
+    }
+
+    @GetMapping("/logout")
+    public String logout(HttpServletRequest request,HttpServletResponse response){
+        request.getSession().removeAttribute("user");
+        Cookie token = new Cookie("token", null);
+        response.addCookie(token);
+        token.setMaxAge(0);
+        return "redirect:/";
     }
 }

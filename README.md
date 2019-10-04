@@ -11,6 +11,8 @@
 [github OAuth Document](https://developer.github.com/apps/building-oauth-apps/creating-an-oauth-app/)
 
 [Spring Database](https://docs.spring.io/spring-boot/docs/2.0.0.RC1/reference/htmlsingle/#boot-features-embedded-database-support)
+
+[thymeleaf](https://www.thymeleaf.org/doc/tutorials/3.0/thymeleafspring.html)
 ## 工具
 [git官网](https://git-scm.com/)
 
@@ -31,6 +33,11 @@ create table USER
 	GMT_CREATE BIGINT,
 	GMT_MODIFIED BIGINT
 );
+```
+```bash
+mvn flyway:migrate
+mvn -Dmybatis.generator.overwrite=true mybatis-generator:generate
+
 ```
 
 
