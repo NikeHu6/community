@@ -10,13 +10,17 @@ import com.nicode.community.community.mapper.UserMapper;
 import com.nicode.community.community.model.Question;
 import com.nicode.community.community.model.QuestionExample;
 import com.nicode.community.community.model.User;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.ibatis.session.RowBounds;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.StringJoiner;
+import java.util.stream.Collectors;
 
 @Service
 public class QuestionService {
@@ -32,6 +36,9 @@ public class QuestionService {
 
     public void createOrUpdate(Question question) {
         if (question.getId() == null){
+            question.setCommentCount(0L);
+            question.setViewCount(0L);
+            question.setLikeCount(0L);
             question.setGmtCreate(System.currentTimeMillis());
             question.setGmtModified(question.getGmtCreate());
             questionMapper.insert(question);
@@ -64,7 +71,9 @@ public class QuestionService {
         Integer offset = size*(page-1);
         PaginationDTO paginationDTO = new PaginationDTO();
         List<QuestionDTO> questionDTOS = new ArrayList<>();
-        List<Question> questionList = questionMapper.selectByExampleWithRowbounds(new QuestionExample(), new RowBounds(offset, size));
+        QuestionExample example = new QuestionExample();
+        example.setOrderByClause("gmt_create desc");
+        List<Question> questionList = questionMapper.selectByExampleWithRowbounds(example, new RowBounds(offset, size));
         for (Question question : questionList) {
             User user = userMapper.selectByPrimaryKey(question.getCreator());
             QuestionDTO questionDTO = new QuestionDTO();
@@ -79,7 +88,7 @@ public class QuestionService {
         return paginationDTO;
     }
 
-    public PaginationDTO list(Integer userId, Integer page, Integer size) {
+    public PaginationDTO list(Long userId, Integer page, Integer size) {
         QuestionExample example = new QuestionExample();
         example.createCriteria().andCreatorEqualTo(userId);
         Integer totalCount = (int)questionMapper.countByExample(example);
@@ -111,7 +120,7 @@ public class QuestionService {
         return paginationDTO;
     }
 
-    public QuestionDTO getByID(Integer id) {
+    public QuestionDTO getByID(Long id) {
 
         Question question = questionMapper.selectByPrimaryKey(id);
         if (question == null){
@@ -124,11 +133,29 @@ public class QuestionService {
         return questionDTO;
     }
 
-    public void incView(Integer id) {
+    public void incView(Long id) {
         //累加问题的浏览次数
         Question question = new Question();
         question.setId(id);
-        question.setViewCount(1);
+        question.setViewCount(1L);
         questionExtMapper.incView(question);
+    }
+
+    public List<QuestionDTO> selectRelated(QuestionDTO questionDTO) {
+        if (StringUtils.isBlank(questionDTO.getTag())){
+            return new ArrayList<>();
+        }
+        String[] tags = StringUtils.split(questionDTO.getTag(), ",");
+        String regexTag = Arrays.stream(tags).collect(Collectors.joining("|"));
+        Question question = new Question();
+        question.setId(questionDTO.getId());
+        question.setTag(regexTag);
+        List<Question> related = questionExtMapper.selectRelated(question);
+        List<QuestionDTO> questionDTOS = related.stream().map(q -> {
+            QuestionDTO DTO = new QuestionDTO();
+            BeanUtils.copyProperties(q,DTO);
+            return DTO;
+        }).collect(Collectors.toList());
+        return questionDTOS;
     }
 }

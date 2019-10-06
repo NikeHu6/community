@@ -4,16 +4,25 @@ import com.nicode.community.community.model.User;
 import lombok.Data;
 
 @Data
-public class QuestionDTO {
+public class CommentDTO {
+
     private Long id;
-    private String title;
-    private String description;
+
+    private Long parentId;
+
+    private Integer type;
+
+    private Long commentator;
+
     private Long gmtCreate;
+
     private Long gmtModified;
-    private Long creator;
-    private Long commentCount;
-    private Long ViewCount;
-    private Long LikeCount;
-    private String tag;
+
+    private Long likeCount;
+
+    private String content;
+
+    private Integer commentCount;
+
     private User user;
 }
